@@ -9,5 +9,10 @@ namespace em
         public List<string> Adjustments { get; set; } = new();
         public string? LastOutput { get; set; }
         public string? LastError { get; set; }
+
+        /// <summary>
+        /// Exit code from the last `run`, if any.
+        /// </summary>
+        public int? LastExitCode { get; set; }
     }
 }

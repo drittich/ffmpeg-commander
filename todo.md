@@ -77,24 +77,24 @@
 
 ### 3) Build the TUI layout (rendering)
 #### If using Terminal.Gui
-- [ ] Create a TUI composition root (e.g. `TuiApp.Run()`):
-  - [ ] Initialize `Application.Init()`
-  - [ ] Create main `Window`
-- [ ] Add “Current command” view:
-  - [ ] A framed panel that renders `state.CurrentCommand` (or “(none)”)
-  - [ ] Color: green for available command; gray when none
-- [ ] Add “Prompt context” view:
-  - [ ] Show base request + bullet list of adjustments
-  - [ ] Color: base request in cyan; adjustments in dim/gray
-- [ ] Add “Output” view:
-  - [ ] Scrollable text view for stdout/stderr
-  - [ ] Color: stdout normal; stderr red; exit code highlighted
-- [ ] Add bottom input field:
-  - [ ] Single-line `TextField`
-  - [ ] Enter submits current text; clears field after submit
-- [ ] Implement a status/footer bar:
-  - [ ] Show hints: `run | clear | exit`
-  - [ ] Show busy indicator when generating/running
+- [x] Create a TUI composition root (e.g. `TuiApp.Run()`):
+  - [x] Initialize `Application.Init()`
+  - [x] Create main `Window`
+- [x] Add “Current command” view:
+  - [x] A framed panel that renders `state.CurrentCommand` (or “(none)”)
+  - [x] Color: green for available command; gray when none
+- [x] Add “Prompt context” view:
+  - [x] Show base request + bullet list of adjustments
+  - [x] Color: base request in cyan; adjustments in dim/gray
+- [x] Add “Output” view:
+  - [x] Scrollable text view for stdout/stderr
+  - [x] Color: stdout normal; stderr red; exit code highlighted
+- [x] Add bottom input field:
+  - [x] Single-line `TextField`
+  - [x] Enter submits current text; clears field after submit
+- [x] Implement a status/footer bar:
+  - [x] Show hints: `run | clear | exit | help`
+  - [x] Show busy indicator when generating/running
 
 #### If using Spectre.Console
 - [ ] Create a Live layout with:
@@ -105,27 +105,27 @@
 - [ ] Ensure rerender occurs after generation/adjust/run/clear
 
 ### 4) Input semantics (exact behavior)
-- [ ] Implement reserved commands:
-  - [ ] `run`: execute stored command; if none, show a warning
-  - [ ] `clear`: clear stored command and prompt context
-  - [ ] `exit`: quit
-  - [ ] Optional `help`: show quick usage panel
-- [ ] Implement natural language handling:
-  - [ ] If `CurrentCommand` is null: treat line as base request; call generate; store `BaseRequest`
-  - [ ] Else: treat line as adjustment; append to `Adjustments`; call adjust; update `CurrentCommand`
-- [ ] Decide how to display “updated form above the command line”:
-  - [ ] Command panel updates immediately after generation/adjustment
-  - [ ] Prompt context panel updates with base + adjustments
+- [x] Implement reserved commands:
+  - [x] `run`: execute stored command; if none, show a warning
+  - [x] `clear`: clear stored command and prompt context
+  - [x] `exit`: quit
+  - [x] Optional `help`: show quick usage panel
+- [x] Implement natural language handling:
+  - [x] If `CurrentCommand` is null: treat line as base request; call generate; store `BaseRequest`
+  - [x] Else: treat line as adjustment; append to `Adjustments`; call adjust; update `CurrentCommand`
+- [x] Decide how to display “updated form above the command line”:
+  - [x] Command panel updates immediately after generation/adjustment
+  - [x] Prompt context panel updates with base + adjustments
 
 ### 5) Execution behavior + output capture
-- [ ] Keep Windows execution semantics (`cmd.exe /C ...`) consistent with [`ExecuteCommand()`](Program.cs:315).
+- [x] Keep Windows execution semantics (`cmd.exe /C ...`) consistent with [`ExecuteCommand()`](Program.cs:315).
 - [ ] Capture:
-  - [ ] stdout
-  - [ ] stderr
-  - [ ] exit code
-- [ ] Display output in the TUI output panel without breaking layout.
-- [ ] Ensure long-running commands don’t freeze UI:
-  - [ ] Run execution on background task
+  - [x] stdout
+  - [x] stderr
+  - [x] exit code
+- [x] Display output in the TUI output panel without breaking layout.
+- [x] Ensure long-running commands don’t freeze UI:
+  - [x] Run execution on background task
   - [ ] Stream or append output (optional), or display after completion (minimum)
 
 ### 6) Color + UX polish

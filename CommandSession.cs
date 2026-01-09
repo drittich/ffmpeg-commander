@@ -124,6 +124,7 @@ namespace em
 
                 State.LastOutput = result.StdOut;
                 State.LastError = result.StdErr;
+                State.LastExitCode = result.ExitCode;
 
                 string message = "Executed. Exit code: " + result.ExitCode + ".";
 
@@ -153,6 +154,7 @@ namespace em
                 State.CurrentCommand = EnsureFullCommand(args);
                 State.LastOutput = null;
                 State.LastError = null;
+                State.LastExitCode = null;
 
                 return new CommandSessionResult
                 {
@@ -176,6 +178,7 @@ namespace em
                 State.CurrentCommand = EnsureFullCommand(updatedArgs);
                 State.LastOutput = null;
                 State.LastError = null;
+                State.LastExitCode = null;
 
                 return new CommandSessionResult
                 {
@@ -197,6 +200,7 @@ namespace em
             state.Adjustments.Clear();
             state.LastOutput = null;
             state.LastError = null;
+            state.LastExitCode = null;
         }
 
         private static (string baseRequest, string description) ParsePotentialFfmpegPrefix(string normalizedLine)
