@@ -56,10 +56,10 @@
   - [x] `GenerateFromDescription(description) -> full command or args`
   - [x] `AdjustFromInstruction(previousFullCommand, instruction) -> updated args`
   - [x] Keep existing prompt/system messages but relocate them.
-- [ ] Extract process execution from [`Program.cs`](Program.cs:315) into `CommandExecutor`:
-  - [ ] Support capturing stdout + stderr
-  - [ ] Return exit code and combined output model
-  - [ ] Ensure it runs without blocking the UI thread (async wrapper)
+- [x] Extract process execution from [`Program.cs`](Program.cs:315) into `CommandExecutor`:
+  - [x] Support capturing stdout + stderr
+  - [x] Return exit code and combined output model
+  - [x] Ensure it runs without blocking the UI thread (async wrapper)
 - [ ] Introduce a single orchestration method (e.g. `CommandSession.ApplyInputLine(line)`):
   - [ ] If `line == run`: validate `CurrentCommand` exists; execute; store output
   - [ ] If `line == clear`: clear state; clear output

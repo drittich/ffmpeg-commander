@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 
 namespace em
 {
@@ -164,22 +163,18 @@ namespace em
         {
             try
             {
-                Process process = new Process();
-                process.StartInfo.FileName = "cmd.exe";
-                process.StartInfo.Arguments = "/C " + command;
-                process.StartInfo.UseShellExecute = false;
-                process.StartInfo.RedirectStandardOutput = true;
-                process.StartInfo.RedirectStandardError = true;
-                process.Start();
-                string output = process.StandardOutput.ReadToEnd();
-                string error = process.StandardError.ReadToEnd();
-                process.WaitForExit();
+                var executor = new CommandExecutor();
+                CommandExecutor.CommandExecutionResult result =
+                    executor.ExecuteAsync(command).GetAwaiter().GetResult();
+
+                Console.WriteLine("Exit code: " + result.ExitCode);
                 Console.WriteLine("Command output:");
-                Console.WriteLine(output);
-                if (!string.IsNullOrEmpty(error))
+                Console.WriteLine(result.StdOut);
+
+                if (!string.IsNullOrEmpty(result.StdErr))
                 {
                     Console.WriteLine("Command error:");
-                    Console.WriteLine(error);
+                    Console.WriteLine(result.StdErr);
                 }
             }
             catch (Exception ex)
