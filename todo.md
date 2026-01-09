@@ -60,11 +60,11 @@
   - [x] Support capturing stdout + stderr
   - [x] Return exit code and combined output model
   - [x] Ensure it runs without blocking the UI thread (async wrapper)
-- [ ] Introduce a single orchestration method (e.g. `CommandSession.ApplyInputLine(line)`):
-  - [ ] If `line == run`: validate `CurrentCommand` exists; execute; store output
-  - [ ] If `line == clear`: clear state; clear output
-  - [ ] If `line == exit`: request app shutdown
-  - [ ] Else: generate/adjust and update state accordingly
+- [x] Introduce a single orchestration method (e.g. `CommandSession.ApplyInputLine(line)`):
+  - [x] If `line == run`: validate `CurrentCommand` exists; execute; store output
+  - [x] If `line == clear`: clear state; clear output
+  - [x] If `line == exit`: request app shutdown
+  - [x] Else: generate/adjust and update state accordingly
 - [ ] Preserve current “ffmpeg-only” assumption explicitly:
   - [ ] Decide whether to store “full command” always including `ffmpeg`
   - [ ] Ensure adjustment path continues to behave like existing logic in [`Program.cs`](Program.cs:68).
