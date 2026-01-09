@@ -46,12 +46,12 @@
   - [ ] Option B: Spectre.Console
 
 ### 1) Refactor current code into testable components (no UI yet)
-- [ ] Create a new `CommandState` model to hold:
-  - [ ] `string? CurrentCommand`
-  - [ ] `string? BaseRequest`
-  - [ ] `List<string> Adjustments`
-  - [ ] `string? LastOutput`
-  - [ ] `string? LastError`
+- [x] Create a new `CommandState` model to hold:
+  - [x] `string? CurrentCommand`
+  - [x] `string? BaseRequest`
+  - [x] `List<string> Adjustments`
+  - [x] `string? LastOutput`
+  - [x] `string? LastError`
 - [ ] Extract OpenAI logic from [`Program.cs`](Program.cs:133) into a dedicated service (e.g. `CommandGenerator`):
   - [ ] `GenerateFromDescription(description) -> full command or args`
   - [ ] `AdjustFromInstruction(previousFullCommand, instruction) -> updated args`
