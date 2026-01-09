@@ -101,7 +101,7 @@ namespace em
                 {
                     ShutdownRequested = false,
                     StateChanged = hadAnything,
-                    Message = hadAnything ? "Cleared." : "Nothing to clear.",
+                    Message = "Cleared",
                     State = State
                 };
             }
@@ -114,7 +114,7 @@ namespace em
                     {
                         ShutdownRequested = false,
                         StateChanged = false,
-                        Message = "No command to run.",
+                        Message = "No command to run",
                         State = State
                     };
                 }
@@ -160,7 +160,7 @@ namespace em
                 {
                     ShutdownRequested = false,
                     StateChanged = true,
-                    Message = "Command generated.",
+                    Message = "Command stored",
                     State = State
                 };
             }
@@ -184,7 +184,7 @@ namespace em
                 {
                     ShutdownRequested = false,
                     StateChanged = true,
-                    Message = "Command updated.",
+                    Message = "Command updated",
                     State = State
                 };
             }

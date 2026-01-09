@@ -167,6 +167,9 @@ public static class TuiApp
                 busyItem
             });
 
+            // Instructions/hints should be visually "dim".
+            statusBar!.ColorScheme = schemeDim;
+
             top.Add(win, statusBar!);
 
             void SetBusy(bool busy, string? message = null)
@@ -188,7 +191,7 @@ public static class TuiApp
                 });
             }
 
-            void AppendLog(string text, bool isError = false)
+            void AppendLog(string text, bool isError = false, bool isDim = false)
             {
                 Application.MainLoop.Invoke(() =>
                 {
@@ -198,8 +201,8 @@ public static class TuiApp
                         outputLog.AppendLine();
                     }
 
-                    // Best-effort color cue: switch output scheme based on last write.
-                    outputTextView.ColorScheme = isError ? schemeError : Colors.Base;
+                    // Best-effort color cue (TextView is single-scheme, so color the last write intent).
+                    outputTextView.ColorScheme = isError ? schemeError : (isDim ? schemeDim : Colors.Base);
 
                     outputTextView.Text = outputLog.ToString();
                     outputTextView.MoveEnd();
@@ -223,8 +226,10 @@ public static class TuiApp
                         currentCommandLabel.ColorScheme = schemeCommandAvailable;
                     }
 
-                    string baseReq = string.IsNullOrWhiteSpace(state.BaseRequest) ? "(none)" : state.BaseRequest!;
+                    bool hasBaseReq = !string.IsNullOrWhiteSpace(state.BaseRequest);
+                    string baseReq = hasBaseReq ? state.BaseRequest! : "(none)";
                     baseRequestLabel.Text = baseReq;
+                    baseRequestLabel.ColorScheme = hasBaseReq ? schemeBaseRequest : schemeDim;
 
                     if (state.Adjustments.Count == 0)
                     {
@@ -285,13 +290,18 @@ public static class TuiApp
                                 result.State.LastExitCode.HasValue &&
                                 result.State.LastExitCode.Value != 0;
 
+                            bool isHelp =
+                                normalized.Equals("help", StringComparison.OrdinalIgnoreCase) ||
+                                result.Message.StartsWith("Usage:", StringComparison.OrdinalIgnoreCase);
+
                             // Treat messages as errors if stderr was present, message looks like an error, or exit code was non-zero.
                             bool isError =
                                 exitCodeNonZero ||
                                 (!string.IsNullOrWhiteSpace(result.State.LastError)) ||
-                                result.Message.StartsWith("Error", StringComparison.OrdinalIgnoreCase);
+                                result.Message.StartsWith("Error", StringComparison.OrdinalIgnoreCase) ||
+                                result.Message.StartsWith("No command to run", StringComparison.OrdinalIgnoreCase);
 
-                            AppendLog(result.Message, isError);
+                            AppendLog(result.Message, isError: isError, isDim: isHelp && !isError);
                         }
 
                         if (normalized.Equals("run", StringComparison.OrdinalIgnoreCase) && result.State.LastExitCode.HasValue)

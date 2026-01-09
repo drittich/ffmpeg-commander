@@ -129,16 +129,16 @@
   - [ ] Stream or append output (optional), or display after completion (minimum)
 
 ### 6) Color + UX polish
-- [ ] Use distinct colors for:
-  - [ ] Current command (green)
-  - [ ] Prompt context (cyan/gray)
-  - [ ] Instructions/hints (dim)
-  - [ ] Errors (red)
+- [x] Use distinct colors for:
+  - [x] Current command (green)
+  - [x] Prompt context (cyan/gray)
+  - [x] Instructions/hints (dim)
+  - [x] Errors (red)
 - [ ] Add subtle separators and consistent spacing.
-- [ ] Add small confirmations:
-  - [ ] “Command stored” after generation/adjustment
-  - [ ] “Cleared” after clear
-  - [ ] “No command to run” warning when `run` with empty state
+- [x] Add small confirmations:
+  - [x] “Command stored” after generation/adjustment
+  - [x] “Cleared” after clear
+  - [x] “No command to run” warning when `run` with empty state
 
 ### 7) Validation, safety, and edge cases
 - [ ] Prevent executing when `CurrentCommand` is empty/whitespace.
