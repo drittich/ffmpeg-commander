@@ -1,10 +1,5 @@
 using System;
 using System.Diagnostics;
-using System.Threading;
-using Azure.AI.OpenAI;
-using OpenAI.Chat;
-using System.ClientModel;
-using Microsoft.Extensions.Configuration;
 
 namespace em
 {
@@ -68,9 +63,11 @@ namespace em
             // If the user didn't start with "ffmpeg", treat the input as an adjustment to the last accepted command (if present).
             bool isAdjustment = !isFfmpegRequest && !string.IsNullOrWhiteSpace(s_lastAcceptedCommand);
 
+            var commandGenerator = new CommandGenerator();
+
             string commandArgs = isAdjustment
-                ? CallOpenAIAPIAdjust(s_lastAcceptedCommand!, description)
-                : CallOpenAIAPI(description);
+                ? commandGenerator.AdjustFromInstruction(s_lastAcceptedCommand!, description).GetAwaiter().GetResult()
+                : commandGenerator.GenerateFromDescription(description).GetAwaiter().GetResult();
 
             // Default to ffmpeg if this is an adjustment (we only support adjusting ffmpeg commands right now).
             if (isAdjustment && string.IsNullOrEmpty(potentialProgram))
@@ -128,155 +125,6 @@ namespace em
                 Console.WriteLine();
                 Console.WriteLine("Command execution canceled.");
             }
-        }
-        
-        static string CallOpenAIAPI(string description)
-        {
-            // appsettings.json:
-            // {
-            //   "AzureOpenAI": { "Endpoint": "...", "ApiKey": "...", "Deployment": "..." }
-            // }
-            IConfiguration config = new ConfigurationBuilder()
-                .SetBasePath(AppContext.BaseDirectory)
-                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
-                .Build();
-
-            string? endpoint = config["AzureOpenAI:Endpoint"];
-            string? apiKey = config["AzureOpenAI:ApiKey"];
-            string? deployment = config["AzureOpenAI:Deployment"];
-
-            // Fallback to the previous behavior if not configured.
-            if (string.IsNullOrWhiteSpace(endpoint) || string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(deployment))
-            {
-                return "generated_command_for_" + description.Replace(" ", "_");
-            }
-
-            try
-            {
-                // Azure.AI.OpenAI v2.x uses AzureOpenAIClient + scenario clients (e.g., ChatClient).
-                var azureClient = new AzureOpenAIClient(new Uri(endpoint), new ApiKeyCredential(apiKey));
-                ChatClient chatClient = azureClient.GetChatClient(deployment);
-
-                var messages = new ChatMessage[]
-                {
-                    new SystemChatMessage(
-                        "You write FFmpeg command lines. " +
-                        "Return ONLY a single line of FFmpeg arguments (do not include the leading 'ffmpeg'). " +
-                        "No explanations, no markdown, no backticks, no surrounding quotes. " +
-                        "Prefer safe defaults. Use double-quotes around file paths that may contain spaces."),
-                    new UserChatMessage(description)
-                };
-
-                var options = new ChatCompletionOptions
-                {
-                    // Keep responses short; enough for typical ffmpeg one-liners.
-                    MaxOutputTokenCount = 256
-                };
-
-                ChatCompletion completion = chatClient.CompleteChat(messages, options, CancellationToken.None);
-                return ExtractSingleLineCommandText(completion, fallback: "generated_command_for_" + description.Replace(" ", "_"));
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Azure OpenAI call failed: " + ex.Message);
-                return "generated_command_for_" + description.Replace(" ", "_");
-            }
-        }
-
-        static string CallOpenAIAPIAdjust(string previousFullCommand, string instruction)
-        {
-            // appsettings.json:
-            // {
-            //   "AzureOpenAI": { "Endpoint": "...", "ApiKey": "...", "Deployment": "..." }
-            // }
-            IConfiguration config = new ConfigurationBuilder()
-                .SetBasePath(AppContext.BaseDirectory)
-                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
-                .Build();
-
-            string? endpoint = config["AzureOpenAI:Endpoint"];
-            string? apiKey = config["AzureOpenAI:ApiKey"];
-            string? deployment = config["AzureOpenAI:Deployment"];
-
-            // If not configured, just return the previous command unchanged (minus leading "ffmpeg").
-            if (string.IsNullOrWhiteSpace(endpoint) || string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(deployment))
-            {
-                return StripLeadingFfmpeg(previousFullCommand);
-            }
-
-            string currentArgs = StripLeadingFfmpeg(previousFullCommand);
-
-            try
-            {
-                var azureClient = new AzureOpenAIClient(new Uri(endpoint), new ApiKeyCredential(apiKey));
-                ChatClient chatClient = azureClient.GetChatClient(deployment);
-
-                var messages = new ChatMessage[]
-                {
-                    new SystemChatMessage(
-                        "You modify existing FFmpeg command lines. " +
-                        "You will be given the current FFmpeg arguments and an instruction. " +
-                        "Return ONLY the updated FFmpeg arguments (do not include the leading 'ffmpeg'). " +
-                        "No explanations, no markdown, no backticks, no surrounding quotes. " +
-                        "Preserve existing input/output paths unless instructed otherwise. " +
-                        "If audio should be removed, add -an and remove audio-related options/filters."),
-                    new UserChatMessage(
-                        "Current FFmpeg arguments:\n" + currentArgs + "\n\n" +
-                        "Instruction:\n" + instruction)
-                };
-
-                var options = new ChatCompletionOptions
-                {
-                    MaxOutputTokenCount = 256
-                };
-
-                ChatCompletion completion = chatClient.CompleteChat(messages, options, CancellationToken.None);
-                return ExtractSingleLineCommandText(completion, fallback: currentArgs);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Azure OpenAI adjust call failed: " + ex.Message);
-                return currentArgs;
-            }
-        }
-
-        static string StripLeadingFfmpeg(string command)
-        {
-            string trimmed = command.TrimStart();
-            return trimmed.StartsWith("ffmpeg ", StringComparison.OrdinalIgnoreCase)
-                ? trimmed.Substring("ffmpeg ".Length).TrimStart()
-                : trimmed;
-        }
-
-        static string ExtractSingleLineCommandText(ChatCompletion completion, string fallback)
-        {
-            string content = string.Empty;
-
-            if (completion.Content != null && completion.Content.Count > 0)
-            {
-                // Typically a single text part; take the first line just like before.
-                content = completion.Content[0].Text ?? string.Empty;
-            }
-
-            content = content.Replace("\r", "");
-            int nl = content.IndexOf('\n');
-            if (nl >= 0)
-                content = content.Substring(0, nl);
-
-            content = content.Trim();
-
-            if (content.StartsWith("```", StringComparison.Ordinal))
-            {
-                content = content.Trim('`').Trim();
-            }
-
-            // If the model accidentally included the program name, strip it.
-            if (content.StartsWith("ffmpeg ", StringComparison.OrdinalIgnoreCase))
-            {
-                content = content.Substring("ffmpeg ".Length).TrimStart();
-            }
-
-            return content.Length == 0 ? fallback : content;
         }
         
         static string EditInline(string initial)

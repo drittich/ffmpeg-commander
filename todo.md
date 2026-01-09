@@ -52,10 +52,10 @@
   - [x] `List<string> Adjustments`
   - [x] `string? LastOutput`
   - [x] `string? LastError`
-- [ ] Extract OpenAI logic from [`Program.cs`](Program.cs:133) into a dedicated service (e.g. `CommandGenerator`):
-  - [ ] `GenerateFromDescription(description) -> full command or args`
-  - [ ] `AdjustFromInstruction(previousFullCommand, instruction) -> updated args`
-  - [ ] Keep existing prompt/system messages but relocate them.
+- [x] Extract OpenAI logic from [`Program.cs`](Program.cs:133) into a dedicated service (e.g. `CommandGenerator`):
+  - [x] `GenerateFromDescription(description) -> full command or args`
+  - [x] `AdjustFromInstruction(previousFullCommand, instruction) -> updated args`
+  - [x] Keep existing prompt/system messages but relocate them.
 - [ ] Extract process execution from [`Program.cs`](Program.cs:315) into `CommandExecutor`:
   - [ ] Support capturing stdout + stderr
   - [ ] Return exit code and combined output model
