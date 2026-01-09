@@ -65,17 +65,15 @@
   - [x] If `line == clear`: clear state; clear output
   - [x] If `line == exit`: request app shutdown
   - [x] Else: generate/adjust and update state accordingly
-- [ ] Preserve current “ffmpeg-only” assumption explicitly:
-  - [ ] Decide whether to store “full command” always including `ffmpeg`
-  - [ ] Ensure adjustment path continues to behave like existing logic in [`Program.cs`](Program.cs:68).
+- [x] Preserve current “ffmpeg-only” assumption explicitly:
+  - [x] Decide whether to store “full command” always including `ffmpeg`
+  - [x] Ensure adjustment path continues to behave like existing logic in [`Program.cs`](Program.cs:68).
 
 ### 2) Add TUI dependency + bootstrap
 - [ ] Add NuGet package reference:
-  - [ ] Terminal.Gui: add package to [`em.csproj`](em.csproj:1)
+  - [x] Terminal.Gui: add package to [`em.csproj`](em.csproj:1)
   - [ ] OR Spectre.Console: add package to [`em.csproj`](em.csproj:1)
-- [ ] Update [`Program.cs`](Program.cs:15) entrypoint to route to:
-  - [ ] One-shot mode when args are present (if retained)
-  - [ ] TUI mode when no args are present
+- [x] Update [`Program.cs`](Program.cs:15) entrypoint to route to TUI mode (always TUI; remove one-shot args mode)
 
 ### 3) Build the TUI layout (rendering)
 #### If using Terminal.Gui

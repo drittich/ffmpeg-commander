@@ -166,12 +166,14 @@ namespace em
             {
                 string instruction = normalized;
 
-                // The generator expects the full prior command, and returns updated FFmpeg arguments (no leading "ffmpeg").
+                // "ffmpeg-only" assumption:
+                // - We store State.CurrentCommand as a full executable command line (leading "ffmpeg ").
+                // - The generator operates on args only; it strips any accidental leading "ffmpeg" and returns args (no leading "ffmpeg").
                 string updatedArgs =
                     await _generator.AdjustFromInstruction(State.CurrentCommand, instruction, ct).ConfigureAwait(false);
 
                 State.Adjustments.Add(instruction);
-                State.CurrentCommand = "ffmpeg " + updatedArgs;
+                State.CurrentCommand = EnsureFullCommand(updatedArgs);
                 State.LastOutput = null;
                 State.LastError = null;
 
@@ -217,7 +219,8 @@ namespace em
             if (trimmed.StartsWith("ffmpeg ", StringComparison.OrdinalIgnoreCase))
                 return trimmed;
 
-            // The generator's system message requests FFmpeg args only; ensure we store an executable full command.
+            // Invariant ("ffmpeg-only" assumption): we store an executable full command line, always including leading "ffmpeg ".
+            // (The generator returns args-only.)
             return "ffmpeg " + trimmed;
         }
     }

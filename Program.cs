@@ -8,36 +8,8 @@ namespace em
 
         static void Main(string[] args)
         {
-            if (args.Length > 0)
-            {
-                // Process initial command-line arguments as a command and exit.
-                string initialInput = string.Join(" ", args).Trim();
-                ProcessInput(initialInput);
-                return;
-            }
-            
-            // Start REPL mode.
-            Console.WriteLine("em.exe REPL mode (type 'exit' to quit)");
-            Console.WriteLine("Tip: after generating a command, type an adjustment like 'remove audio' to revise the last command.");
-            while (true)
-            {
-                Console.Write("> ");
-                string? input = Console.ReadLine()?.Trim();
-                if (input == null || input.Equals("exit", StringComparison.OrdinalIgnoreCase))
-                    break;
-
-                if (input.Equals("clear", StringComparison.OrdinalIgnoreCase))
-                {
-                    s_lastAcceptedCommand = null;
-                    Console.WriteLine("Cleared last accepted command.");
-                    continue;
-                }
-
-                if (input.Length == 0)
-                    continue;
-
-                ProcessInput(input);
-            }
+            // Always run the TUI (no one-shot args mode).
+            TuiApp.Run();
         }
         
         static void ProcessInput(string input)
