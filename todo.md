@@ -150,12 +150,12 @@
 - [x] Ensure `appsettings.json` behavior remains unchanged (copied to output by [`em.csproj`](em.csproj:16)).
 
 ### 8) Tests (optional but recommended)
-- [ ] Add unit tests for `CommandSession.ApplyInputLine` state transitions:
-  - [ ] First NL line stores base request + command
-  - [ ] Second NL line appends adjustment + updates command
-  - [ ] `clear` resets state
-  - [ ] `run` with no command warns/does nothing
-- [ ] Add unit tests for reserved command parsing (`run`, `clear`, `exit`).
+- [x] Add unit tests for `CommandSession.ApplyInputLine` state transitions:
+  - [x] First NL line stores base request + command
+  - [x] Second NL line appends adjustment + updates command
+  - [x] `clear` resets state
+  - [x] `run` with no command warns/does nothing
+- [x] Add unit tests for reserved command parsing (`run`, `clear`, `exit`).
 
 ### 9) Manual verification checklist (VS Code)
 - [ ] Run app with no args and verify TUI starts and input is blank.

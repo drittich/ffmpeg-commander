@@ -15,6 +15,17 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="em.Tests" />
+  </ItemGroup>
+
+  <!-- Exclude the test project tree from the main app's SDK-default globs. -->
+  <ItemGroup>
+    <Compile Remove="em.Tests\**\*" />
+    <EmbeddedResource Remove="em.Tests\**\*" />
+    <None Remove="em.Tests\**\*" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

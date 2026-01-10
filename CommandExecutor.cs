@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace em
 {
-    internal sealed class CommandExecutor
+    internal class CommandExecutor
     {
         internal sealed class CommandExecutionResult
         {
@@ -21,7 +21,7 @@ namespace em
                 StdOut + Environment.NewLine + StdErr;
         }
 
-        public async Task<CommandExecutionResult> ExecuteAsync(string fullCommand, CancellationToken ct = default)
+        public virtual async Task<CommandExecutionResult> ExecuteAsync(string fullCommand, CancellationToken ct = default)
         {
             if (string.IsNullOrWhiteSpace(fullCommand))
                 throw new ArgumentException("Command must not be null/empty.", nameof(fullCommand));

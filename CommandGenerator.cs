@@ -8,7 +8,7 @@ using System.ClientModel;
 
 namespace em
 {
-    internal sealed class CommandGenerator
+    internal class CommandGenerator
     {
         internal readonly record struct GeneratorCallResult(string Value, string? Error);
 
@@ -26,7 +26,7 @@ namespace em
                 .Build();
         }
 
-        public async Task<GeneratorCallResult> GenerateFromDescription(string description, CancellationToken ct = default)
+        public virtual async Task<GeneratorCallResult> GenerateFromDescription(string description, CancellationToken ct = default)
         {
             string fallback = "generated_command_for_" + (description ?? string.Empty).Replace(" ", "_");
 
@@ -78,7 +78,7 @@ namespace em
             }
         }
 
-        public async Task<GeneratorCallResult> AdjustFromInstruction(string previousFullCommand, string instruction, CancellationToken ct = default)
+        public virtual async Task<GeneratorCallResult> AdjustFromInstruction(string previousFullCommand, string instruction, CancellationToken ct = default)
         {
             string? endpoint = _config["AzureOpenAI:Endpoint"];
             string? apiKey = _config["AzureOpenAI:ApiKey"];
