@@ -121,12 +121,16 @@ public static class TuiApp
 
             promptContextFrame.Add(baseRequestLabel, adjustmentsLabel);
 
+            // Bottom input lives in its own frame so it's always visible and not overlapped by the output view.
+            // Height includes the frame border + one-line TextField.
+            const int inputFrameHeight = 3;
+
             var outputFrame = new FrameView("Output")
             {
                 X = 0,
                 Y = Pos.Bottom(promptContextFrame),
                 Width = Dim.Fill(),
-                Height = Dim.Fill(1) // leave last row for input
+                Height = Dim.Fill(inputFrameHeight) // leave room for the input frame below
             };
 
             var outputTextView = new TextView
@@ -139,15 +143,24 @@ public static class TuiApp
             };
             outputFrame.Add(outputTextView);
 
+            var inputFrame = new FrameView("Input")
+            {
+                X = 0,
+                Y = Pos.AnchorEnd(inputFrameHeight),
+                Width = Dim.Fill(),
+                Height = inputFrameHeight
+            };
+
             var inputField = new TextField(string.Empty)
             {
                 X = 0,
-                Y = Pos.AnchorEnd(0),
+                Y = 0,
                 Width = Dim.Fill(),
                 Height = 1
             };
+            inputFrame.Add(inputField);
 
-            win.Add(currentCommandFrame, promptContextFrame, outputFrame, inputField);
+            win.Add(currentCommandFrame, promptContextFrame, outputFrame, inputFrame);
 
             // --- Footer / status ---
             bool isBusy = false;
@@ -184,6 +197,12 @@ public static class TuiApp
                     busyItem.Title = isBusy
                         ? (string.IsNullOrWhiteSpace(busyText) ? "Busy…" : ("Busy: " + busyText))
                         : "Idle";
+
+                    // When leaving busy state, restore focus so typing always goes into the input field.
+                    if (!isBusy)
+                    {
+                        inputField.SetFocus();
+                    }
 
                     // Avoid referencing the StatusBar instance here to prevent definite-assignment issues
                     // (StatusBar is constructed with lambdas that call SubmitLineAsync -> SetBusy).
@@ -355,12 +374,18 @@ public static class TuiApp
 
                 args.Handled = true;
 
+                // Keep focus in the input field (especially after Enter).
+                inputField.SetFocus();
+
                 // Terminal.Gui requires an event-handler signature here; keep it fire-and-forget.
                 _ = SubmitLineAsync(line);
             };
 
             // Initial render.
             RenderFromState(session.State);
+
+            // Ensure the input is usable immediately on startup.
+            inputField.SetFocus();
 
             Application.Run();
         }

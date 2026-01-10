@@ -158,12 +158,12 @@
 - [x] Add unit tests for reserved command parsing (`run`, `clear`, `exit`).
 
 ### 9) Manual verification checklist (VS Code)
-- [ ] Run app with no args and verify TUI starts and input is blank.
-- [ ] Enter a request; verify command appears above input and input clears.
-- [ ] Enter an adjustment; verify prompt context updates and command changes.
-- [ ] Enter `run`; verify command executes and output appears.
-- [ ] Enter `clear`; verify command + prompt context cleared.
-- [ ] Enter `exit`; verify clean shutdown.
+- [x] Run app with no args and verify TUI starts and input is blank.
+- [x] Enter a request; verify command appears above input and input clears.
+- [x] Enter an adjustment; verify prompt context updates and command changes.
+- [x] Enter `run`; verify command executes and output appears.
+- [x] Enter `clear`; verify command + prompt context cleared.
+- [x] Enter `exit`; verify clean shutdown.
 
 ---
 

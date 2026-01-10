@@ -74,7 +74,11 @@ namespace em
             }
             catch (Exception ex)
             {
-                return new GeneratorCallResult(string.Empty, "OpenAI generation failed: " + ex.Message);
+                string context =
+                    $"endpointHost={SafeHost(endpoint)} deployment={deployment} " +
+                    $"options.MaxOutputTokenCount=256";
+
+                return new GeneratorCallResult(string.Empty, BuildOpenAiFailure("generation", ex, context));
             }
         }
 
@@ -128,7 +132,11 @@ namespace em
             catch (Exception ex)
             {
                 // Keep prior behavior: if adjust fails, keep the current args, but surface the failure upstream.
-                return new GeneratorCallResult(currentArgs, "OpenAI adjust failed: " + ex.Message + " (kept previous command).");
+                string context =
+                    $"endpointHost={SafeHost(endpoint)} deployment={deployment} " +
+                    $"options.MaxOutputTokenCount=256";
+
+                return new GeneratorCallResult(currentArgs, BuildOpenAiFailure("adjust", ex, context) + " (kept previous command).");
             }
         }
 
@@ -145,6 +153,30 @@ namespace em
             "No explanations, no markdown, no backticks, no surrounding quotes. " +
             "Preserve existing input/output paths unless instructed otherwise. " +
             "If audio should be removed, add -an and remove audio-related options/filters.";
+
+        private static string BuildOpenAiFailure(string action, Exception ex, string context)
+        {
+            // Keep this concise but more informative than ex.Message alone.
+            string type = ex.GetType().FullName ?? ex.GetType().Name;
+
+            string inner = ex.InnerException == null
+                ? string.Empty
+                : $" | Inner={ex.InnerException.GetType().FullName}: {ex.InnerException.Message}";
+
+            return $"OpenAI {action} failed: {ex.Message} ({type}) | {context}{inner}";
+        }
+
+        private static string SafeHost(string endpoint)
+        {
+            try
+            {
+                return new Uri(endpoint).Host;
+            }
+            catch
+            {
+                return "(invalid-endpoint)";
+            }
+        }
 
         private static string StripLeadingFfmpeg(string command)
         {
