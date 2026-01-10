@@ -10,6 +10,8 @@ namespace em
 {
     internal sealed class CommandGenerator
     {
+        internal readonly record struct GeneratorCallResult(string Value, string? Error);
+
         private readonly IConfiguration _config;
 
         // appsettings.json:
@@ -24,18 +26,18 @@ namespace em
                 .Build();
         }
 
-        public async Task<string> GenerateFromDescription(string description, CancellationToken ct = default)
+        public async Task<GeneratorCallResult> GenerateFromDescription(string description, CancellationToken ct = default)
         {
-            string fallback = "generated_command_for_" + description.Replace(" ", "_");
+            string fallback = "generated_command_for_" + (description ?? string.Empty).Replace(" ", "_");
 
             string? endpoint = _config["AzureOpenAI:Endpoint"];
             string? apiKey = _config["AzureOpenAI:ApiKey"];
             string? deployment = _config["AzureOpenAI:Deployment"];
 
-            // Fallback to the previous behavior if not configured.
+            // Preserve prior behavior: if not configured, return a deterministic fallback.
             if (string.IsNullOrWhiteSpace(endpoint) || string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(deployment))
             {
-                return fallback;
+                return new GeneratorCallResult(fallback, Error: null);
             }
 
             try
@@ -57,16 +59,26 @@ namespace em
                 };
 
                 ChatCompletion completion = await chatClient.CompleteChatAsync(messages, options, ct).ConfigureAwait(false);
-                return ExtractSingleLineCommandText(completion, fallback: fallback);
+                string args = ExtractSingleLineCommandText(completion, fallback: string.Empty);
+
+                if (string.IsNullOrWhiteSpace(args))
+                {
+                    return new GeneratorCallResult(string.Empty, "OpenAI generation returned empty output.");
+                }
+
+                return new GeneratorCallResult(args, Error: null);
             }
-            catch
+            catch (OperationCanceledException)
             {
-                // Keep console logging out of this service for testability; fall back silently.
-                return fallback;
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return new GeneratorCallResult(string.Empty, "OpenAI generation failed: " + ex.Message);
             }
         }
 
-        public async Task<string> AdjustFromInstruction(string previousFullCommand, string instruction, CancellationToken ct = default)
+        public async Task<GeneratorCallResult> AdjustFromInstruction(string previousFullCommand, string instruction, CancellationToken ct = default)
         {
             string? endpoint = _config["AzureOpenAI:Endpoint"];
             string? apiKey = _config["AzureOpenAI:ApiKey"];
@@ -75,7 +87,7 @@ namespace em
             // If not configured, just return the previous command unchanged (minus leading "ffmpeg").
             if (string.IsNullOrWhiteSpace(endpoint) || string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(deployment))
             {
-                return StripLeadingFfmpeg(previousFullCommand);
+                return new GeneratorCallResult(StripLeadingFfmpeg(previousFullCommand), Error: null);
             }
 
             string currentArgs = StripLeadingFfmpeg(previousFullCommand);
@@ -99,12 +111,24 @@ namespace em
                 };
 
                 ChatCompletion completion = await chatClient.CompleteChatAsync(messages, options, ct).ConfigureAwait(false);
-                return ExtractSingleLineCommandText(completion, fallback: currentArgs);
+                string updated = ExtractSingleLineCommandText(completion, fallback: currentArgs);
+
+                // If the model produced nothing usable, keep prior args (but surface an error upstream).
+                if (string.IsNullOrWhiteSpace(updated))
+                {
+                    return new GeneratorCallResult(currentArgs, "OpenAI adjust returned empty output (kept previous command).");
+                }
+
+                return new GeneratorCallResult(updated, Error: null);
             }
-            catch
+            catch (OperationCanceledException)
             {
-                // Keep prior behavior: if adjust fails, keep the current args.
-                return currentArgs;
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // Keep prior behavior: if adjust fails, keep the current args, but surface the failure upstream.
+                return new GeneratorCallResult(currentArgs, "OpenAI adjust failed: " + ex.Message + " (kept previous command).");
             }
         }
 

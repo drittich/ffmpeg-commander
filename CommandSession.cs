@@ -147,11 +147,27 @@ namespace em
             {
                 (string baseRequest, string description) = ParsePotentialFfmpegPrefix(normalized);
 
-                string args = await _generator.GenerateFromDescription(description, ct).ConfigureAwait(false);
+                CommandGenerator.GeneratorCallResult gen =
+                    await _generator.GenerateFromDescription(description, ct).ConfigureAwait(false);
+
+                if (!string.IsNullOrWhiteSpace(gen.Error))
+                {
+                    State.LastOutput = null;
+                    State.LastError = gen.Error;
+                    State.LastExitCode = null;
+
+                    return new CommandSessionResult
+                    {
+                        ShutdownRequested = false,
+                        StateChanged = true,
+                        Message = "Error: " + gen.Error,
+                        State = State
+                    };
+                }
 
                 State.BaseRequest = baseRequest;
                 State.Adjustments.Clear();
-                State.CurrentCommand = EnsureFullCommand(args);
+                State.CurrentCommand = EnsureFullCommand(gen.Value);
                 State.LastOutput = null;
                 State.LastError = null;
                 State.LastExitCode = null;
@@ -171,20 +187,23 @@ namespace em
                 // "ffmpeg-only" assumption:
                 // - We store State.CurrentCommand as a full executable command line (leading "ffmpeg ").
                 // - The generator operates on args only; it strips any accidental leading "ffmpeg" and returns args (no leading "ffmpeg").
-                string updatedArgs =
+                CommandGenerator.GeneratorCallResult adjust =
                     await _generator.AdjustFromInstruction(State.CurrentCommand, instruction, ct).ConfigureAwait(false);
 
                 State.Adjustments.Add(instruction);
-                State.CurrentCommand = EnsureFullCommand(updatedArgs);
+                State.CurrentCommand = EnsureFullCommand(adjust.Value);
                 State.LastOutput = null;
-                State.LastError = null;
                 State.LastExitCode = null;
+
+                // If adjust failed, keep previous command (AdjustFromInstruction already returns previous args on failure)
+                // but surface the error so UI can show it.
+                State.LastError = string.IsNullOrWhiteSpace(adjust.Error) ? null : adjust.Error;
 
                 return new CommandSessionResult
                 {
                     ShutdownRequested = false,
                     StateChanged = true,
-                    Message = "Command updated",
+                    Message = string.IsNullOrWhiteSpace(adjust.Error) ? "Command updated" : ("Error: " + adjust.Error),
                     State = State
                 };
             }

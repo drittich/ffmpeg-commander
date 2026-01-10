@@ -141,13 +141,13 @@
   - [x] “No command to run” warning when `run` with empty state
 
 ### 7) Validation, safety, and edge cases
-- [ ] Prevent executing when `CurrentCommand` is empty/whitespace.
-- [ ] Handle OpenAI failures:
-  - [ ] Show error in output/status area
-  - [ ] Keep previous command if adjust fails (consistent with current adjust fallback)
-- [ ] Handle cancellation / quit while running (define behavior):
-  - [ ] At minimum: block quit while running, or allow quit after completion
-- [ ] Ensure `appsettings.json` behavior remains unchanged (copied to output by [`em.csproj`](em.csproj:16)).
+- [x] Prevent executing when `CurrentCommand` is empty/whitespace.
+- [x] Handle OpenAI failures:
+  - [x] Show error in output/status area
+  - [x] Keep previous command if adjust fails (consistent with current adjust fallback)
+- [x] Handle cancellation / quit while running (define behavior):
+  - [x] At minimum: block quit while running, or allow quit after completion
+- [x] Ensure `appsettings.json` behavior remains unchanged (copied to output by [`em.csproj`](em.csproj:16)).
 
 ### 8) Tests (optional but recommended)
 - [ ] Add unit tests for `CommandSession.ApplyInputLine` state transitions:

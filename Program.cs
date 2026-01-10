@@ -36,9 +36,16 @@ namespace em
 
             var commandGenerator = new CommandGenerator();
 
-            string commandArgs = isAdjustment
+            CommandGenerator.GeneratorCallResult gen = isAdjustment
                 ? commandGenerator.AdjustFromInstruction(s_lastAcceptedCommand!, description).GetAwaiter().GetResult()
                 : commandGenerator.GenerateFromDescription(description).GetAwaiter().GetResult();
+
+            if (!string.IsNullOrWhiteSpace(gen.Error))
+            {
+                Console.WriteLine("Error: " + gen.Error);
+            }
+
+            string commandArgs = gen.Value;
 
             // Default to ffmpeg if this is an adjustment (we only support adjusting ffmpeg commands right now).
             if (isAdjustment && string.IsNullOrEmpty(potentialProgram))

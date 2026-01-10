@@ -260,6 +260,14 @@ public static class TuiApp
                 if (normalized.Length == 0)
                     return;
 
+                // Minimal defined behavior: block quitting while busy (running/generating).
+                // Applies to both typed `exit` and F10 status action.
+                if (isBusy && normalized.Equals("exit", StringComparison.OrdinalIgnoreCase))
+                {
+                    AppendLog("Busy: cannot exit while running. Please wait for completion.", isError: true);
+                    return;
+                }
+
                 SetBusy(true, normalized.Equals("run", StringComparison.OrdinalIgnoreCase) ? "running" : "working");
 
                 AppendLog($"> {normalized}");
