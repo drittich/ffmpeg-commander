@@ -1,10 +1,9 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure;
 using Azure.AI.OpenAI;
 using Microsoft.Extensions.Configuration;
-using OpenAI.Chat;
-using System.ClientModel;
 
 namespace em
 {
@@ -42,23 +41,17 @@ namespace em
 
             try
             {
-                // Azure.AI.OpenAI v2.x uses AzureOpenAIClient + scenario clients (e.g., ChatClient).
-                var azureClient = new AzureOpenAIClient(new Uri(endpoint), new ApiKeyCredential(apiKey));
-                ChatClient chatClient = azureClient.GetChatClient(deployment);
+                var azureClient = new OpenAIClient(new Uri(endpoint), new AzureKeyCredential(apiKey));
 
-                var messages = new ChatMessage[]
+                var options = new ChatCompletionsOptions
                 {
-                    new SystemChatMessage(GenerateSystemMessage),
-                    new UserChatMessage(description)
+                    DeploymentName = deployment
                 };
+                options.Messages.Add(new ChatRequestSystemMessage(GenerateSystemMessage));
+                options.Messages.Add(new ChatRequestUserMessage(description));
 
-                var options = new ChatCompletionOptions
-                {
-                    // Keep responses short; enough for typical ffmpeg one-liners.
-                    MaxOutputTokenCount = 256
-                };
-
-                ChatCompletion completion = await chatClient.CompleteChatAsync(messages, options, ct).ConfigureAwait(false);
+                Response<ChatCompletions> response = await azureClient.GetChatCompletionsAsync(options, ct).ConfigureAwait(false);
+                ChatCompletions completion = response.Value;
                 string args = ExtractSingleLineCommandText(completion, fallback: string.Empty);
 
                 if (string.IsNullOrWhiteSpace(args))
@@ -76,7 +69,7 @@ namespace em
             {
                 string context =
                     $"endpointHost={SafeHost(endpoint)} deployment={deployment} " +
-                    $"options.MaxOutputTokenCount=256";
+                    "options.MaxTokens=(unset)";
 
                 return new GeneratorCallResult(string.Empty, BuildOpenAiFailure("generation", ex, context));
             }
@@ -98,23 +91,19 @@ namespace em
 
             try
             {
-                var azureClient = new AzureOpenAIClient(new Uri(endpoint), new ApiKeyCredential(apiKey));
-                ChatClient chatClient = azureClient.GetChatClient(deployment);
+                var azureClient = new OpenAIClient(new Uri(endpoint), new AzureKeyCredential(apiKey));
 
-                var messages = new ChatMessage[]
+                var options = new ChatCompletionsOptions
                 {
-                    new SystemChatMessage(AdjustSystemMessage),
-                    new UserChatMessage(
-                        "Current FFmpeg arguments:\n" + currentArgs + "\n\n" +
-                        "Instruction:\n" + instruction)
+                    DeploymentName = deployment
                 };
+                options.Messages.Add(new ChatRequestSystemMessage(AdjustSystemMessage));
+                options.Messages.Add(new ChatRequestUserMessage(
+                    "Current FFmpeg arguments:\n" + currentArgs + "\n\n" +
+                    "Instruction:\n" + instruction));
 
-                var options = new ChatCompletionOptions
-                {
-                    MaxOutputTokenCount = 256
-                };
-
-                ChatCompletion completion = await chatClient.CompleteChatAsync(messages, options, ct).ConfigureAwait(false);
+                Response<ChatCompletions> response = await azureClient.GetChatCompletionsAsync(options, ct).ConfigureAwait(false);
+                ChatCompletions completion = response.Value;
                 string updated = ExtractSingleLineCommandText(completion, fallback: currentArgs);
 
                 // If the model produced nothing usable, keep prior args (but surface an error upstream).
@@ -134,7 +123,7 @@ namespace em
                 // Keep prior behavior: if adjust fails, keep the current args, but surface the failure upstream.
                 string context =
                     $"endpointHost={SafeHost(endpoint)} deployment={deployment} " +
-                    $"options.MaxOutputTokenCount=256";
+                    "options.MaxTokens=(unset)";
 
                 return new GeneratorCallResult(currentArgs, BuildOpenAiFailure("adjust", ex, context) + " (kept previous command).");
             }
@@ -186,14 +175,13 @@ namespace em
                 : trimmed;
         }
 
-        private static string ExtractSingleLineCommandText(ChatCompletion completion, string fallback)
+        private static string ExtractSingleLineCommandText(ChatCompletions completion, string fallback)
         {
             string content = string.Empty;
 
-            if (completion.Content != null && completion.Content.Count > 0)
+            if (completion?.Choices != null && completion.Choices.Count > 0)
             {
-                // Typically a single text part; take the first line just like before.
-                content = completion.Content[0].Text ?? string.Empty;
+                content = completion.Choices[0].Message?.Content ?? string.Empty;
             }
 
             content = content.Replace("\r", "");
