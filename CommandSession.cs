@@ -77,11 +77,11 @@ namespace em
                         "Usage:\n" +
                         "  - Type a natural-language request to generate a command\n" +
                         "  - Type additional lines to adjust the current command\n" +
-                        "Reserved commands:\n" +
-                        "  run   Execute the current command\n" +
-                        "  clear Clear stored command + output\n" +
-                        "  exit  Quit\n" +
-                        "  help  Show this help",
+                        "Commands (press the function key or click it in the status bar):\n" +
+                        "  F5  run    Execute the current command\n" +
+                        "  F6  clear  Clear stored command + output\n" +
+                        "  F1  help   Show this help\n" +
+                        "  F10 exit   Quit",
                     State = State
                 };
             }
@@ -140,7 +140,31 @@ namespace em
                 };
             }
 
-            // Natural-language line:
+            // Not a reserved command — treat as free text (generate or adjust).
+            return await ApplyTextLine(normalized, ct).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Applies a free-text line: generates a new command when none is stored, otherwise treats the
+        /// line as an adjustment to the current command. Reserved words are NOT interpreted here — typed
+        /// input is always natural language. Command actions (run/clear/exit/help) are invoked separately
+        /// (via <see cref="ApplyInputLine"/> from the status-bar function keys).
+        /// </summary>
+        public async Task<CommandSessionResult> ApplyTextLine(string? line, CancellationToken ct = default)
+        {
+            string normalized = (line ?? string.Empty).Trim();
+
+            if (normalized.Length == 0)
+            {
+                return new CommandSessionResult
+                {
+                    ShutdownRequested = false,
+                    StateChanged = false,
+                    Message = string.Empty,
+                    State = State
+                };
+            }
+
             // - If no current command: generate
             // - Else: treat as adjustment and update
             if (string.IsNullOrWhiteSpace(State.CurrentCommand))

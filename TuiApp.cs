@@ -194,10 +194,10 @@ public static class TuiApp
 
             var statusBar = new StatusBar(new[]
             {
-                new Shortcut(Key.F5, "run", () => _ = SubmitLineAsync("run"), null),
-                new Shortcut(Key.F6, "clear", () => _ = SubmitLineAsync("clear"), null),
-                new Shortcut(Key.F1, "help", () => _ = SubmitLineAsync("help"), null),
-                new Shortcut(Key.F10, "exit", () => _ = SubmitLineAsync("exit"), null),
+                new Shortcut(Key.F5, "run", () => _ = SubmitLineAsync("run", isCommand: true), null),
+                new Shortcut(Key.F6, "clear", () => _ = SubmitLineAsync("clear", isCommand: true), null),
+                new Shortcut(Key.F1, "help", () => _ = SubmitLineAsync("help", isCommand: true), null),
+                new Shortcut(Key.F10, "exit", () => _ = SubmitLineAsync("exit", isCommand: true), null),
                 busyItem
             });
 
@@ -290,7 +290,9 @@ public static class TuiApp
                 });
             }
 
-            async Task SubmitLineAsync(string line)
+            // isCommand: true for the status-bar function-key actions (run/clear/exit/help), which dispatch
+            // reserved commands. Typed input is always free text (natural language) and never a command.
+            async Task SubmitLineAsync(string line, bool isCommand = false)
             {
                 // Called from UI thread, but do not block it.
                 string normalized = (line ?? string.Empty).Trim();
@@ -299,30 +301,34 @@ public static class TuiApp
                     return;
 
                 // Minimal defined behavior: block quitting while busy (running/generating).
-                // Applies to both typed `exit` and F10 status action.
-                if (isBusy && normalized.Equals("exit", StringComparison.OrdinalIgnoreCase))
+                // Only the `exit` command action can quit; typed text is never a command.
+                if (isCommand && isBusy && normalized.Equals("exit", StringComparison.OrdinalIgnoreCase))
                 {
                     AppendLog("Busy: cannot exit while running. Please wait for completion.", isError: true);
                     return;
                 }
 
-                SetBusy(true, normalized.Equals("run", StringComparison.OrdinalIgnoreCase) ? "running" : "working");
+                bool isRunCommand = isCommand && normalized.Equals("run", StringComparison.OrdinalIgnoreCase);
+
+                SetBusy(true, isRunCommand ? "running" : "working");
 
                 AppendLog($"> {normalized}");
 
                 try
                 {
-                    CommandSessionResult result =
-                        await session.ApplyInputLine(normalized).ConfigureAwait(false);
+                    // Function-key/status-bar actions dispatch reserved commands; typed input is always free text.
+                    CommandSessionResult result = isCommand
+                        ? await session.ApplyInputLine(normalized).ConfigureAwait(false)
+                        : await session.ApplyTextLine(normalized).ConfigureAwait(false);
 
                     app.Invoke(() =>
                     {
                         RenderFromState(result.State);
 
                         // Respect "clear stored command + output" semantics.
-                        // NOTE: Clear the *UI* output view/log unconditionally on `clear`,
+                        // NOTE: Clear the *UI* output view/log unconditionally on the `clear` action,
                         // even if the session state did not change (e.g., clearing after `help` output).
-                        if (normalized.Equals("clear", StringComparison.OrdinalIgnoreCase))
+                        if (isCommand && normalized.Equals("clear", StringComparison.OrdinalIgnoreCase))
                         {
                             outputLog.Clear();
                             outputTextView.Text = string.Empty;
@@ -332,12 +338,12 @@ public static class TuiApp
                         if (!string.IsNullOrWhiteSpace(result.Message))
                         {
                             bool exitCodeNonZero =
-                                normalized.Equals("run", StringComparison.OrdinalIgnoreCase) &&
+                                isRunCommand &&
                                 result.State.LastExitCode.HasValue &&
                                 result.State.LastExitCode.Value != 0;
 
                             bool isHelp =
-                                normalized.Equals("help", StringComparison.OrdinalIgnoreCase) ||
+                                (isCommand && normalized.Equals("help", StringComparison.OrdinalIgnoreCase)) ||
                                 result.Message.StartsWith("Usage:", StringComparison.OrdinalIgnoreCase);
 
                             // Treat messages as errors if stderr was present, message looks like an error, or exit code was non-zero.
@@ -350,7 +356,7 @@ public static class TuiApp
                             AppendLog(result.Message, isError: isError, isDim: isHelp && !isError);
                         }
 
-                        if (normalized.Equals("run", StringComparison.OrdinalIgnoreCase) && result.State.LastExitCode.HasValue)
+                        if (isRunCommand && result.State.LastExitCode.HasValue)
                         {
                             int code = result.State.LastExitCode.Value;
                             AppendLog("Exit code: " + code, isError: code != 0);
@@ -397,7 +403,8 @@ public static class TuiApp
                 inputField.SetFocus();
 
                 // Terminal.Gui requires an event-handler signature here; keep it fire-and-forget.
-                _ = SubmitLineAsync(line);
+                // Typed input is always free text — never a reserved command.
+                _ = SubmitLineAsync(line, isCommand: false);
             };
 
             // Initial render.
