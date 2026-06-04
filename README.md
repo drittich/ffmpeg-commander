@@ -9,22 +9,22 @@ and it generates a ready-to-run `ffmpeg` command. You can then refine it in plai
 English, tweak the arguments by hand, and run it — all without leaving the terminal.
 
 ```
-┌ Current command  (Tab to edit · Enter to commit) ───────────────────────────┐
-│ ffmpeg -i input.mov -vf scale=-2:720 -an output.mp4                          │
-└──────────────────────────────────────────────────────────────────────────────┘
-┌ Prompt context ──────────────────────────────────────────────────────────────┐
+┌ Current command  (Tab to edit · Enter to commit) ─────────────────────────────┐
+│ ffmpeg -i input.mov -vf scale=-2:720 -an output.mp4                           │
+└───────────────────────────────────────────────────────────────────────────────┘
+┌ Prompt context ───────────────────────────────────────────────────────────────┐
 │ convert input.mov to 720p mp4 and remove the audio                            │
 │ • make it 720p                                                                │
 │ • remove the audio                                                            │
-└──────────────────────────────────────────────────────────────────────────────┘
-┌ Output ────────────────────────────────────────────────────────────────────┐
+└───────────────────────────────────────────────────────────────────────────────┘
+┌ Output ───────────────────────────────────────────────────────────────────────┐
 │ > run                                                                         │
 │ frame=  812 fps=240 q=28.0 size=    2304kB time=00:00:27.10 ...               │
 │ Exit code: 0                                                                  │
-└──────────────────────────────────────────────────────────────────────────────┘
-┌ Request  (type plain English · Enter to send) ───────────────────────────────┐
+└───────────────────────────────────────────────────────────────────────────────┘
+┌ Request  (type plain English · Enter to send) ────────────────────────────────┐
 │ make it 720p█                                                                 │
-└──────────────────────────────────────────────────────────────────────────────┘
+└───────────────────────────────────────────────────────────────────────────────┘
  F1 help  F2 edit  F5 run  F6 clear  F7 undo  F10 exit                    Idle
 ```
 
@@ -72,7 +72,7 @@ project root (it's git-ignored, so it won't be committed) with the following:
 | Setting      | Description                                                                 |
 | ------------ | --------------------------------------------------------------------------- |
 | `Endpoint`   | The base URL of your Azure OpenAI resource.                                 |
-| `ApiKey`     | A key for that resource.                                                     |
+| `ApiKey`     | A key for that resource.                                                    |
 | `Deployment` | The name of your deployed chat model (e.g. a GPT deployment), **not** the model name. |
 
 All three values must be present for generation to be enabled. If any are
