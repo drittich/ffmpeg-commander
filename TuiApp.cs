@@ -16,7 +16,7 @@ using Terminal.Gui.Views;
 // disambiguate it from System.Attribute.
 using Attribute = Terminal.Gui.Drawing.Attribute;
 
-namespace em;
+namespace FfmpegCommander;
 
 public static class TuiApp
 {

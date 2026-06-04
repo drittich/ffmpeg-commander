@@ -1,4 +1,4 @@
-namespace em
+namespace FfmpegCommander
 {
     class Program
     {

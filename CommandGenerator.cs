@@ -6,7 +6,7 @@ using Azure.AI.OpenAI;
 using Microsoft.Extensions.Configuration;
 using OpenAI.Chat;
 
-namespace em
+namespace FfmpegCommander
 {
     internal class CommandGenerator
     {

@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace em
+namespace FfmpegCommander
 {
     public sealed class CommandState
     {

@@ -1,10 +1,7 @@
-using System;
 using System.Diagnostics;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 
-namespace em
+namespace FfmpegCommander
 {
     internal class CommandExecutor
     {

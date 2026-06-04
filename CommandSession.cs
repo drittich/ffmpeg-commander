@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace em
+namespace FfmpegCommander
 {
     public sealed class CommandSessionResult
     {
