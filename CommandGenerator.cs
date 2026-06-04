@@ -26,18 +26,28 @@ namespace em
                 .Build();
         }
 
+        /// <summary>
+        /// True only when AzureOpenAI:Endpoint, AzureOpenAI:ApiKey, and AzureOpenAI:Deployment are all
+        /// present (non-empty) in configuration. The UI can use this to detect the "not configured" state up front.
+        /// </summary>
+        public bool IsConfigured =>
+            !string.IsNullOrWhiteSpace(_config["AzureOpenAI:Endpoint"]) &&
+            !string.IsNullOrWhiteSpace(_config["AzureOpenAI:ApiKey"]) &&
+            !string.IsNullOrWhiteSpace(_config["AzureOpenAI:Deployment"]);
+
+        internal const string NotConfiguredMessage =
+            "AI is not configured. Set AzureOpenAI:Endpoint, AzureOpenAI:ApiKey, and AzureOpenAI:Deployment in appsettings.json.";
+
         public virtual async Task<GeneratorCallResult> GenerateFromDescription(string description, CancellationToken ct = default)
         {
-            string fallback = "generated_command_for_" + (description ?? string.Empty).Replace(" ", "_");
-
             string? endpoint = _config["AzureOpenAI:Endpoint"];
             string? apiKey = _config["AzureOpenAI:ApiKey"];
             string? deployment = _config["AzureOpenAI:Deployment"];
 
-            // Preserve prior behavior: if not configured, return a deterministic fallback.
+            // Not configured: do NOT fabricate a fake command. Surface a clear error instead.
             if (string.IsNullOrWhiteSpace(endpoint) || string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(deployment))
             {
-                return new GeneratorCallResult(fallback, Error: null);
+                return new GeneratorCallResult(string.Empty, NotConfiguredMessage);
             }
 
             try
@@ -54,6 +64,7 @@ namespace em
                     cancellationToken: ct).ConfigureAwait(false);
 
                 string args = ExtractSingleLineCommandText(completion, fallback: string.Empty);
+
 
                 if (string.IsNullOrWhiteSpace(args))
                 {
@@ -82,10 +93,10 @@ namespace em
             string? apiKey = _config["AzureOpenAI:ApiKey"];
             string? deployment = _config["AzureOpenAI:Deployment"];
 
-            // If not configured, just return the previous command unchanged (minus leading "ffmpeg").
+            // Not configured: surface the same error, but keep the previous args as Value so nothing is lost.
             if (string.IsNullOrWhiteSpace(endpoint) || string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(deployment))
             {
-                return new GeneratorCallResult(StripLeadingFfmpeg(previousFullCommand), Error: null);
+                return new GeneratorCallResult(StripLeadingFfmpeg(previousFullCommand), NotConfiguredMessage);
             }
 
             string currentArgs = StripLeadingFfmpeg(previousFullCommand);

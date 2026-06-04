@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -24,6 +25,17 @@ namespace em
     {
         private readonly CommandGenerator _generator;
         private readonly CommandExecutor _executor;
+
+        // Immutable snapshot of the mutable parts of CommandState, used for Undo.
+        private sealed record StateSnapshot(
+            string? CurrentCommand,
+            string? BaseRequest,
+            IReadOnlyList<string> Adjustments,
+            string? LastOutput,
+            string? LastError,
+            int? LastExitCode);
+
+        private readonly Stack<StateSnapshot> _undo = new();
 
         public CommandState State { get; }
 
@@ -95,6 +107,9 @@ namespace em
                     !string.IsNullOrWhiteSpace(State.LastOutput) ||
                     !string.IsNullOrWhiteSpace(State.LastError);
 
+                // Snapshot BEFORE clearing so the clear is undoable.
+                PushUndoSnapshot();
+
                 ClearState(State);
 
                 return new CommandSessionResult
@@ -108,36 +123,9 @@ namespace em
 
             if (IsReserved(normalized, "run"))
             {
-                if (string.IsNullOrWhiteSpace(State.CurrentCommand))
-                {
-                    return new CommandSessionResult
-                    {
-                        ShutdownRequested = false,
-                        StateChanged = false,
-                        Message = "No command to run",
-                        State = State
-                    };
-                }
-
-                CommandExecutor.CommandExecutionResult result =
-                    await _executor.ExecuteAsync(State.CurrentCommand, ct).ConfigureAwait(false);
-
-                State.LastOutput = result.StdOut;
-                State.LastError = result.StdErr;
-                State.LastExitCode = result.ExitCode;
-
-                string message = "Executed. Exit code: " + result.ExitCode + ".";
-
-                if (!string.IsNullOrWhiteSpace(result.StdErr))
-                    message += " (stderr captured)";
-
-                return new CommandSessionResult
-                {
-                    ShutdownRequested = false,
-                    StateChanged = true,
-                    Message = message,
-                    State = State
-                };
+                // Run is NOT state-mutating in the undoable sense (only updates Last* output fields),
+                // so we do not snapshot here. Route through RunAsync with no streaming callbacks.
+                return await RunAsync(onStdoutLine: null, onStderrLine: null, ct).ConfigureAwait(false);
             }
 
             // Not a reserved command — treat as free text (generate or adjust).
@@ -170,6 +158,9 @@ namespace em
             if (string.IsNullOrWhiteSpace(State.CurrentCommand))
             {
                 (string baseRequest, string description) = ParsePotentialFfmpegPrefix(normalized);
+
+                // Snapshot BEFORE the generate mutation so it can be undone.
+                PushUndoSnapshot();
 
                 CommandGenerator.GeneratorCallResult gen =
                     await _generator.GenerateFromDescription(description, ct).ConfigureAwait(false);
@@ -208,6 +199,9 @@ namespace em
             {
                 string instruction = normalized;
 
+                // Snapshot BEFORE the adjust mutation so it can be undone.
+                PushUndoSnapshot();
+
                 // "ffmpeg-only" assumption:
                 // - We store State.CurrentCommand as a full executable command line (leading "ffmpeg ").
                 // - The generator operates on args only; it strips any accidental leading "ffmpeg" and returns args (no leading "ffmpeg").
@@ -231,6 +225,126 @@ namespace em
                     State = State
                 };
             }
+        }
+
+        /// <summary>
+        /// Runs the current command, streaming stdout/stderr lines to the supplied callbacks as they arrive.
+        /// Stores LastOutput/LastError/LastExitCode and returns the same "Executed. Exit code: N." message
+        /// (with " (stderr captured)" appended when stderr is non-empty) as the reserved "run" path.
+        /// The callbacks may be invoked on background threads (see <see cref="CommandExecutor.ExecuteStreamingAsync"/>).
+        /// </summary>
+        public async Task<CommandSessionResult> RunAsync(
+            Action<string>? onStdoutLine,
+            Action<string>? onStderrLine,
+            CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(State.CurrentCommand))
+            {
+                return new CommandSessionResult
+                {
+                    ShutdownRequested = false,
+                    StateChanged = false,
+                    Message = "No command to run",
+                    State = State
+                };
+            }
+
+            CommandExecutor.CommandExecutionResult result =
+                await _executor.ExecuteStreamingAsync(State.CurrentCommand, onStdoutLine, onStderrLine, ct).ConfigureAwait(false);
+
+            State.LastOutput = result.StdOut;
+            State.LastError = result.StdErr;
+            State.LastExitCode = result.ExitCode;
+
+            string message = "Executed. Exit code: " + result.ExitCode + ".";
+
+            if (!string.IsNullOrWhiteSpace(result.StdErr))
+                message += " (stderr captured)";
+
+            return new CommandSessionResult
+            {
+                ShutdownRequested = false,
+                StateChanged = true,
+                Message = message,
+                State = State
+            };
+        }
+
+        /// <summary>
+        /// Applies a user-edited command directly. Normalizes a leading "ffmpeg " via the same helper used
+        /// for generator output, sets State.CurrentCommand, and clears the last run output. Undoable.
+        /// </summary>
+        public CommandSessionResult SetCommand(string fullCommandOrArgs)
+        {
+            // Snapshot BEFORE mutating so the edit can be undone.
+            PushUndoSnapshot();
+
+            State.CurrentCommand = EnsureFullCommand(fullCommandOrArgs ?? string.Empty);
+            State.LastOutput = null;
+            State.LastError = null;
+            State.LastExitCode = null;
+
+            return new CommandSessionResult
+            {
+                ShutdownRequested = false,
+                StateChanged = true,
+                Message = "Command edited",
+                State = State
+            };
+        }
+
+        /// <summary>True when there is at least one snapshot available to undo.</summary>
+        public bool CanUndo => _undo.Count > 0;
+
+        /// <summary>
+        /// Restores the most recent snapshot into the existing State object (mutated in place so callers
+        /// holding a reference to session.State observe the change).
+        /// </summary>
+        public CommandSessionResult Undo()
+        {
+            if (_undo.Count == 0)
+            {
+                return new CommandSessionResult
+                {
+                    ShutdownRequested = false,
+                    StateChanged = false,
+                    Message = "Nothing to undo",
+                    State = State
+                };
+            }
+
+            StateSnapshot snapshot = _undo.Pop();
+            RestoreSnapshot(snapshot);
+
+            return new CommandSessionResult
+            {
+                ShutdownRequested = false,
+                StateChanged = true,
+                Message = "Undid last change",
+                State = State
+            };
+        }
+
+        private void PushUndoSnapshot()
+        {
+            _undo.Push(new StateSnapshot(
+                CurrentCommand: State.CurrentCommand,
+                BaseRequest: State.BaseRequest,
+                Adjustments: new List<string>(State.Adjustments),
+                LastOutput: State.LastOutput,
+                LastError: State.LastError,
+                LastExitCode: State.LastExitCode));
+        }
+
+        private void RestoreSnapshot(StateSnapshot snapshot)
+        {
+            State.CurrentCommand = snapshot.CurrentCommand;
+            State.BaseRequest = snapshot.BaseRequest;
+            State.Adjustments.Clear();
+            State.Adjustments.AddRange(snapshot.Adjustments);
+            State.LastOutput = snapshot.LastOutput;
+            State.LastError = snapshot.LastError;
+            State.LastExitCode = snapshot.LastExitCode;
         }
 
         private static bool IsReserved(string input, string reserved) =>

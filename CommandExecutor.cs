@@ -21,7 +21,28 @@ namespace em
                 StdOut + Environment.NewLine + StdErr;
         }
 
-        public virtual async Task<CommandExecutionResult> ExecuteAsync(string fullCommand, CancellationToken ct = default)
+        public virtual Task<CommandExecutionResult> ExecuteAsync(string fullCommand, CancellationToken ct = default)
+        {
+            // Delegate to the streaming implementation with no per-line callbacks.
+            // (Test fakes override this method directly, so this delegation does not affect them.)
+            return ExecuteStreamingAsync(fullCommand, onStdoutLine: null, onStderrLine: null, ct);
+        }
+
+        /// <summary>
+        /// Runs the command and invokes <paramref name="onStdoutLine"/>/<paramref name="onStderrLine"/>
+        /// line-by-line as output arrives, while still aggregating the full stdout/stderr into the returned
+        /// result. Preserves cancellation behavior (kills the process tree on cancel).
+        /// </summary>
+        /// <remarks>
+        /// IMPORTANT: the callbacks may be invoked on background (thread-pool) threads raised by
+        /// Process.OutputDataReceived/ErrorDataReceived. The UI layer is responsible for marshalling
+        /// to its own UI thread.
+        /// </remarks>
+        public virtual async Task<CommandExecutionResult> ExecuteStreamingAsync(
+            string fullCommand,
+            Action<string>? onStdoutLine,
+            Action<string>? onStderrLine,
+            CancellationToken ct = default)
         {
             if (string.IsNullOrWhiteSpace(fullCommand))
                 throw new ArgumentException("Command must not be null/empty.", nameof(fullCommand));
@@ -40,13 +61,40 @@ namespace em
 
             using var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
 
+            var stdoutBuilder = new StringBuilder();
+            var stderrBuilder = new StringBuilder();
+
+            // OutputDataReceived/ErrorDataReceived deliver one line at a time (without the newline),
+            // and a final event with Data == null when the stream closes. We aggregate AND stream.
+            process.OutputDataReceived += (_, e) =>
+            {
+                if (e.Data == null)
+                    return;
+
+                lock (stdoutBuilder)
+                    stdoutBuilder.AppendLine(e.Data);
+
+                onStdoutLine?.Invoke(e.Data);
+            };
+
+            process.ErrorDataReceived += (_, e) =>
+            {
+                if (e.Data == null)
+                    return;
+
+                lock (stderrBuilder)
+                    stderrBuilder.AppendLine(e.Data);
+
+                onStderrLine?.Invoke(e.Data);
+            };
+
             try
             {
                 if (!process.Start())
                     throw new InvalidOperationException("Failed to start process.");
 
-                Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
-                Task<string> stderrTask = process.StandardError.ReadToEndAsync();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
 
                 using var _ = ct.Register(() =>
                 {
@@ -63,15 +111,23 @@ namespace em
 
                 await process.WaitForExitAsync(ct).ConfigureAwait(false);
 
-                // Ensure streams are fully drained.
-                string stdout = await stdoutTask.ConfigureAwait(false);
-                string stderr = await stderrTask.ConfigureAwait(false);
+                // WaitForExitAsync returns once the process exits, but the async read events may still
+                // be in flight. A parameterless WaitForExit() flushes remaining buffered output and
+                // ensures all *DataReceived handlers have run.
+                process.WaitForExit();
+
+                string stdout;
+                string stderr;
+                lock (stdoutBuilder)
+                    stdout = stdoutBuilder.ToString();
+                lock (stderrBuilder)
+                    stderr = stderrBuilder.ToString();
 
                 return new CommandExecutionResult
                 {
                     ExitCode = process.ExitCode,
-                    StdOut = stdout ?? string.Empty,
-                    StdErr = stderr ?? string.Empty
+                    StdOut = stdout,
+                    StdErr = stderr
                 };
             }
             catch (OperationCanceledException)
