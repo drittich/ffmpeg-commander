@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Terminal.Gui.App;
 using Terminal.Gui.Configuration;
 using Terminal.Gui.Drawing;
+using Terminal.Gui.Drivers;
 using Terminal.Gui.Input;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
@@ -152,7 +153,7 @@ public static class TuiApp
                 Height = 1
             };
 
-            var commandArgsField = new TextField
+            var commandArgsField = new VisibleCursorTextField
             {
                 Text = string.Empty,
                 X = Pos.Right(ffmpegPrefixLabel),
@@ -230,7 +231,7 @@ public static class TuiApp
                 Height = inputFrameHeight
             };
 
-            var inputField = new TextField
+            var inputField = new VisibleCursorTextField
             {
                 Text = string.Empty,
                 X = 0,
@@ -646,6 +647,27 @@ public static class TuiApp
         finally
         {
             app.Dispose();
+        }
+    }
+
+    // A TextField that renders a more visible terminal caret (a blinking block) while focused,
+    // instead of the driver default that can be hard to spot against the dark scheme. Terminal.Gui v2
+    // assigns the Cursor (an immutable record carrying position + style) during the draw pass, so we
+    // keep the position the base view computed and only override the style afterward.
+    private sealed class VisibleCursorTextField : TextField
+    {
+        public CursorStyle FocusedCursorStyle { get; init; } = CursorStyle.BlinkingBlock;
+
+        // OnDrawComplete runs after the base TextField has positioned its caret for this draw pass,
+        // so the position is already correct here — we only override the style to make it stand out.
+        protected override void OnDrawComplete(DrawContext? context)
+        {
+            base.OnDrawComplete(context);
+
+            if (HasFocus && Cursor.Position is not null)
+            {
+                Cursor = Cursor with { Style = FocusedCursorStyle };
+            }
         }
     }
 }
