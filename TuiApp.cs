@@ -1,7 +1,18 @@
 using System;
 using System.Text;
 using System.Threading.Tasks;
-using Terminal.Gui;
+using Terminal.Gui.App;
+using Terminal.Gui.Configuration;
+using Terminal.Gui.Drawing;
+using Terminal.Gui.Input;
+using Terminal.Gui.ViewBase;
+using Terminal.Gui.Views;
+
+// Terminal.Gui v2 moved its types out of the root namespace and renamed several APIs:
+// ColorScheme -> Scheme, view.ColorScheme = x -> view.SetScheme(x), Application.Refresh ->
+// Application.LayoutAndDraw, StatusItem -> Shortcut, KeyPress -> KeyDown. Alias Attribute to
+// disambiguate it from System.Attribute.
+using Attribute = Terminal.Gui.Drawing.Attribute;
 
 namespace em;
 
@@ -9,128 +20,136 @@ public static class TuiApp
 {
     public static void Run()
     {
-        Application.Init();
+        // v2 replaces the static Application object with a disposable IApplication instance.
+        // Disposing it performs the shutdown that Application.Shutdown() did in v1.
+        IApplication app = Application.Create();
+        app.Init();
 
         try
         {
             var session = new CommandSession();
 
-            var top = Application.Top;
-
             // Reserve the bottom line for the StatusBar.
-            var win = new Window("em — interactive command builder")
+            var win = new Window
             {
+                Title = "em — interactive command builder",
                 X = 0,
                 Y = 0,
                 Width = Dim.Fill(),
-                Height = Dim.Fill(1)
+                Height = Dim.Fill()
             };
 
             // --- Color schemes (approximate expectations from todo.md) ---
-            var schemeCommandAvailable = new ColorScheme
+            var schemeCommandAvailable = new Scheme
             {
-                Normal = Application.Driver.MakeAttribute(Color.BrightGreen, Color.Black),
-                Focus = Application.Driver.MakeAttribute(Color.BrightGreen, Color.Black),
-                HotNormal = Application.Driver.MakeAttribute(Color.BrightGreen, Color.Black),
-                HotFocus = Application.Driver.MakeAttribute(Color.BrightGreen, Color.Black),
-                Disabled = Application.Driver.MakeAttribute(Color.Gray, Color.Black)
+                Normal = new Attribute(Color.BrightGreen, Color.Black),
+                Focus = new Attribute(Color.BrightGreen, Color.Black),
+                HotNormal = new Attribute(Color.BrightGreen, Color.Black),
+                HotFocus = new Attribute(Color.BrightGreen, Color.Black),
+                Disabled = new Attribute(Color.Gray, Color.Black)
             };
 
-            var schemeCommandNone = new ColorScheme
+            var schemeCommandNone = new Scheme
             {
-                Normal = Application.Driver.MakeAttribute(Color.Gray, Color.Black),
-                Focus = Application.Driver.MakeAttribute(Color.Gray, Color.Black),
-                HotNormal = Application.Driver.MakeAttribute(Color.Gray, Color.Black),
-                HotFocus = Application.Driver.MakeAttribute(Color.Gray, Color.Black),
-                Disabled = Application.Driver.MakeAttribute(Color.Gray, Color.Black)
+                Normal = new Attribute(Color.Gray, Color.Black),
+                Focus = new Attribute(Color.Gray, Color.Black),
+                HotNormal = new Attribute(Color.Gray, Color.Black),
+                HotFocus = new Attribute(Color.Gray, Color.Black),
+                Disabled = new Attribute(Color.Gray, Color.Black)
             };
 
-            var schemeBaseRequest = new ColorScheme
+            var schemeBaseRequest = new Scheme
             {
-                Normal = Application.Driver.MakeAttribute(Color.BrightCyan, Color.Black),
-                Focus = Application.Driver.MakeAttribute(Color.BrightCyan, Color.Black),
-                HotNormal = Application.Driver.MakeAttribute(Color.BrightCyan, Color.Black),
-                HotFocus = Application.Driver.MakeAttribute(Color.BrightCyan, Color.Black),
-                Disabled = Application.Driver.MakeAttribute(Color.Gray, Color.Black)
+                Normal = new Attribute(Color.BrightCyan, Color.Black),
+                Focus = new Attribute(Color.BrightCyan, Color.Black),
+                HotNormal = new Attribute(Color.BrightCyan, Color.Black),
+                HotFocus = new Attribute(Color.BrightCyan, Color.Black),
+                Disabled = new Attribute(Color.Gray, Color.Black)
             };
 
-            var schemeDim = new ColorScheme
+            var schemeDim = new Scheme
             {
-                Normal = Application.Driver.MakeAttribute(Color.Gray, Color.Black),
-                Focus = Application.Driver.MakeAttribute(Color.Gray, Color.Black),
-                HotNormal = Application.Driver.MakeAttribute(Color.Gray, Color.Black),
-                HotFocus = Application.Driver.MakeAttribute(Color.Gray, Color.Black),
-                Disabled = Application.Driver.MakeAttribute(Color.Gray, Color.Black)
+                Normal = new Attribute(Color.Gray, Color.Black),
+                Focus = new Attribute(Color.Gray, Color.Black),
+                HotNormal = new Attribute(Color.Gray, Color.Black),
+                HotFocus = new Attribute(Color.Gray, Color.Black),
+                Disabled = new Attribute(Color.Gray, Color.Black)
             };
 
-            var schemeError = new ColorScheme
+            var schemeError = new Scheme
             {
-                Normal = Application.Driver.MakeAttribute(Color.BrightRed, Color.Black),
-                Focus = Application.Driver.MakeAttribute(Color.BrightRed, Color.Black),
-                HotNormal = Application.Driver.MakeAttribute(Color.BrightRed, Color.Black),
-                HotFocus = Application.Driver.MakeAttribute(Color.BrightRed, Color.Black),
-                Disabled = Application.Driver.MakeAttribute(Color.Gray, Color.Black)
+                Normal = new Attribute(Color.BrightRed, Color.Black),
+                Focus = new Attribute(Color.BrightRed, Color.Black),
+                HotNormal = new Attribute(Color.BrightRed, Color.Black),
+                HotFocus = new Attribute(Color.BrightRed, Color.Black),
+                Disabled = new Attribute(Color.Gray, Color.Black)
             };
+
+            Scheme schemeDefault = SchemeManager.GetScheme("Base");
 
             // --- Panes ---
-            var currentCommandFrame = new FrameView("Current command")
+            var currentCommandFrame = new FrameView
             {
+                Title = "Current command",
                 X = 0,
                 Y = 0,
                 Width = Dim.Fill(),
                 Height = 5
             };
 
-            var currentCommandLabel = new Label(string.Empty)
+            var currentCommandLabel = new Label
             {
+                Text = string.Empty,
                 X = 1,
                 Y = 0,
                 Width = Dim.Fill(1),
-                Height = Dim.Fill(),
-                AutoSize = false
+                Height = Dim.Fill()
             };
             currentCommandFrame.Add(currentCommandLabel);
 
-            var promptContextFrame = new FrameView("Prompt context")
+            var promptContextFrame = new FrameView
             {
+                Title = "Prompt context",
                 X = 0,
                 Y = Pos.Bottom(currentCommandFrame),
                 Width = Dim.Fill(),
                 Height = 7
             };
 
-            var baseRequestLabel = new Label(string.Empty)
+            var baseRequestLabel = new Label
             {
+                Text = string.Empty,
                 X = 1,
                 Y = 0,
                 Width = Dim.Fill(1),
-                Height = 2,
-                AutoSize = false,
-                ColorScheme = schemeBaseRequest
+                Height = 2
             };
+            baseRequestLabel.SetScheme(schemeBaseRequest);
 
-            var adjustmentsLabel = new Label(string.Empty)
+            var adjustmentsLabel = new Label
             {
+                Text = string.Empty,
                 X = 1,
                 Y = Pos.Bottom(baseRequestLabel),
                 Width = Dim.Fill(1),
-                Height = Dim.Fill(),
-                AutoSize = false,
-                ColorScheme = schemeDim
+                Height = Dim.Fill()
             };
+            adjustmentsLabel.SetScheme(schemeDim);
 
             promptContextFrame.Add(baseRequestLabel, adjustmentsLabel);
 
             // Bottom input lives in its own frame so it's always visible and not overlapped by the output view.
-            // Height includes the frame border + one-line TextField.
+            // Height includes the frame border + one-line TextField. The extra row below is reserved for the
+            // StatusBar, which now lives inside the top-level window (v2 removed the separate Toplevel host).
             const int inputFrameHeight = 3;
 
-            var outputFrame = new FrameView("Output")
+            var outputFrame = new FrameView
             {
+                Title = "Output",
                 X = 0,
                 Y = Pos.Bottom(promptContextFrame),
                 Width = Dim.Fill(),
-                Height = Dim.Fill(inputFrameHeight) // leave room for the input frame below
+                Height = Dim.Fill(inputFrameHeight + 1) // leave room for the input frame + status bar below
             };
 
             var outputTextView = new TextView
@@ -143,16 +162,18 @@ public static class TuiApp
             };
             outputFrame.Add(outputTextView);
 
-            var inputFrame = new FrameView("Input")
+            var inputFrame = new FrameView
             {
+                Title = "Input",
                 X = 0,
-                Y = Pos.AnchorEnd(inputFrameHeight),
+                Y = Pos.AnchorEnd(inputFrameHeight + 1),
                 Width = Dim.Fill(),
                 Height = inputFrameHeight
             };
 
-            var inputField = new TextField(string.Empty)
+            var inputField = new TextField
             {
+                Text = string.Empty,
                 X = 0,
                 Y = 0,
                 Width = Dim.Fill(),
@@ -169,21 +190,21 @@ public static class TuiApp
             // UI-local output log (session state remains source of truth for command/prompt/output capture).
             var outputLog = new StringBuilder();
 
-            var busyItem = new StatusItem(Key.Null, "Idle", null);
+            var busyItem = new Shortcut { Title = "Idle", Key = Key.Empty };
 
-            StatusBar? statusBar = new StatusBar(new[]
+            var statusBar = new StatusBar(new[]
             {
-                new StatusItem(Key.F5, "~F5~ run", () => _ = SubmitLineAsync("run")),
-                new StatusItem(Key.F6, "~F6~ clear", () => _ = SubmitLineAsync("clear")),
-                new StatusItem(Key.F1, "~F1~ help", () => _ = SubmitLineAsync("help")),
-                new StatusItem(Key.F10, "~F10~ exit", () => _ = SubmitLineAsync("exit")),
+                new Shortcut(Key.F5, "run", () => _ = SubmitLineAsync("run"), null),
+                new Shortcut(Key.F6, "clear", () => _ = SubmitLineAsync("clear"), null),
+                new Shortcut(Key.F1, "help", () => _ = SubmitLineAsync("help"), null),
+                new Shortcut(Key.F10, "exit", () => _ = SubmitLineAsync("exit"), null),
                 busyItem
             });
 
             // Instructions/hints should be visually "dim".
-            statusBar!.ColorScheme = schemeDim;
+            statusBar.SetScheme(schemeDim);
 
-            top.Add(win, statusBar!);
+            win.Add(statusBar);
 
             void SetBusy(bool busy, string? message = null)
             {
@@ -191,7 +212,7 @@ public static class TuiApp
                 busyText = message ?? string.Empty;
 
                 // Must update UI state on UI thread.
-                Application.MainLoop.Invoke(() =>
+                app.Invoke(() =>
                 {
                     inputField.ReadOnly = isBusy;
                     busyItem.Title = isBusy
@@ -204,15 +225,13 @@ public static class TuiApp
                         inputField.SetFocus();
                     }
 
-                    // Avoid referencing the StatusBar instance here to prevent definite-assignment issues
-                    // (StatusBar is constructed with lambdas that call SubmitLineAsync -> SetBusy).
-                    Application.Refresh();
+                    app.LayoutAndDraw(false);
                 });
             }
 
             void AppendLog(string text, bool isError = false, bool isDim = false)
             {
-                Application.MainLoop.Invoke(() =>
+                app.Invoke(() =>
                 {
                     if (!string.IsNullOrWhiteSpace(text))
                     {
@@ -221,34 +240,34 @@ public static class TuiApp
                     }
 
                     // Best-effort color cue (TextView is single-scheme, so color the last write intent).
-                    outputTextView.ColorScheme = isError ? schemeError : (isDim ? schemeDim : Colors.Base);
+                    outputTextView.SetScheme(isError ? schemeError : (isDim ? schemeDim : schemeDefault));
 
                     outputTextView.Text = outputLog.ToString();
                     outputTextView.MoveEnd();
-                    outputTextView.SetNeedsDisplay();
+                    outputTextView.SetNeedsDraw();
                 });
             }
 
             void RenderFromState(CommandState state)
             {
-                Application.MainLoop.Invoke(() =>
+                app.Invoke(() =>
                 {
                     string cmd = string.IsNullOrWhiteSpace(state.CurrentCommand) ? "(none)" : state.CurrentCommand!;
                     currentCommandLabel.Text = cmd;
 
                     if (string.IsNullOrWhiteSpace(state.CurrentCommand))
                     {
-                        currentCommandLabel.ColorScheme = schemeCommandNone;
+                        currentCommandLabel.SetScheme(schemeCommandNone);
                     }
                     else
                     {
-                        currentCommandLabel.ColorScheme = schemeCommandAvailable;
+                        currentCommandLabel.SetScheme(schemeCommandAvailable);
                     }
 
                     bool hasBaseReq = !string.IsNullOrWhiteSpace(state.BaseRequest);
                     string baseReq = hasBaseReq ? state.BaseRequest! : "(none)";
                     baseRequestLabel.Text = baseReq;
-                    baseRequestLabel.ColorScheme = hasBaseReq ? schemeBaseRequest : schemeDim;
+                    baseRequestLabel.SetScheme(hasBaseReq ? schemeBaseRequest : schemeDim);
 
                     if (state.Adjustments.Count == 0)
                     {
@@ -266,8 +285,8 @@ public static class TuiApp
                         adjustmentsLabel.Text = sb.ToString().TrimEnd();
                     }
 
-                    currentCommandFrame.SetNeedsDisplay();
-                    promptContextFrame.SetNeedsDisplay();
+                    currentCommandFrame.SetNeedsDraw();
+                    promptContextFrame.SetNeedsDraw();
                 });
             }
 
@@ -296,7 +315,7 @@ public static class TuiApp
                     CommandSessionResult result =
                         await session.ApplyInputLine(normalized).ConfigureAwait(false);
 
-                    Application.MainLoop.Invoke(() =>
+                    app.Invoke(() =>
                     {
                         RenderFromState(result.State);
 
@@ -307,7 +326,7 @@ public static class TuiApp
                         {
                             outputLog.Clear();
                             outputTextView.Text = string.Empty;
-                            outputTextView.SetNeedsDisplay();
+                            outputTextView.SetNeedsDraw();
                         }
 
                         if (!string.IsNullOrWhiteSpace(result.Message))
@@ -349,7 +368,7 @@ public static class TuiApp
 
                         if (result.ShutdownRequested)
                         {
-                            Application.RequestStop();
+                            app.RequestStop();
                         }
                     });
                 }
@@ -364,15 +383,15 @@ public static class TuiApp
             }
 
             // Enter-to-submit from the bottom input field.
-            inputField.KeyPress += (args) =>
+            inputField.KeyDown += (sender, key) =>
             {
-                if (args.KeyEvent.Key != Key.Enter)
+                if (key != Key.Enter)
                     return;
 
-                string line = inputField.Text?.ToString() ?? string.Empty;
+                string line = inputField.Text ?? string.Empty;
                 inputField.Text = string.Empty;
 
-                args.Handled = true;
+                key.Handled = true;
 
                 // Keep focus in the input field (especially after Enter).
                 inputField.SetFocus();
@@ -387,11 +406,12 @@ public static class TuiApp
             // Ensure the input is usable immediately on startup.
             inputField.SetFocus();
 
-            Application.Run();
+            app.Run(win, null);
+            win.Dispose();
         }
         finally
         {
-            Application.Shutdown();
+            app.Dispose();
         }
     }
 }

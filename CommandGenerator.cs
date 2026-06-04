@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Azure;
 using Azure.AI.OpenAI;
 using Microsoft.Extensions.Configuration;
+using OpenAI.Chat;
 
 namespace em
 {
@@ -41,17 +42,17 @@ namespace em
 
             try
             {
-                var azureClient = new OpenAIClient(new Uri(endpoint), new AzureKeyCredential(apiKey));
+                var azureClient = new AzureOpenAIClient(new Uri(endpoint), new AzureKeyCredential(apiKey));
+                ChatClient chatClient = azureClient.GetChatClient(deployment);
 
-                var options = new ChatCompletionsOptions
-                {
-                    DeploymentName = deployment
-                };
-                options.Messages.Add(new ChatRequestSystemMessage(GenerateSystemMessage));
-                options.Messages.Add(new ChatRequestUserMessage(description));
+                ChatCompletion completion = await chatClient.CompleteChatAsync(
+                    new ChatMessage[]
+                    {
+                        new SystemChatMessage(GenerateSystemMessage),
+                        new UserChatMessage(description),
+                    },
+                    cancellationToken: ct).ConfigureAwait(false);
 
-                Response<ChatCompletions> response = await azureClient.GetChatCompletionsAsync(options, ct).ConfigureAwait(false);
-                ChatCompletions completion = response.Value;
                 string args = ExtractSingleLineCommandText(completion, fallback: string.Empty);
 
                 if (string.IsNullOrWhiteSpace(args))
@@ -91,19 +92,19 @@ namespace em
 
             try
             {
-                var azureClient = new OpenAIClient(new Uri(endpoint), new AzureKeyCredential(apiKey));
+                var azureClient = new AzureOpenAIClient(new Uri(endpoint), new AzureKeyCredential(apiKey));
+                ChatClient chatClient = azureClient.GetChatClient(deployment);
 
-                var options = new ChatCompletionsOptions
-                {
-                    DeploymentName = deployment
-                };
-                options.Messages.Add(new ChatRequestSystemMessage(AdjustSystemMessage));
-                options.Messages.Add(new ChatRequestUserMessage(
-                    "Current FFmpeg arguments:\n" + currentArgs + "\n\n" +
-                    "Instruction:\n" + instruction));
+                ChatCompletion completion = await chatClient.CompleteChatAsync(
+                    new ChatMessage[]
+                    {
+                        new SystemChatMessage(AdjustSystemMessage),
+                        new UserChatMessage(
+                            "Current FFmpeg arguments:\n" + currentArgs + "\n\n" +
+                            "Instruction:\n" + instruction),
+                    },
+                    cancellationToken: ct).ConfigureAwait(false);
 
-                Response<ChatCompletions> response = await azureClient.GetChatCompletionsAsync(options, ct).ConfigureAwait(false);
-                ChatCompletions completion = response.Value;
                 string updated = ExtractSingleLineCommandText(completion, fallback: currentArgs);
 
                 // If the model produced nothing usable, keep prior args (but surface an error upstream).
@@ -175,13 +176,13 @@ namespace em
                 : trimmed;
         }
 
-        private static string ExtractSingleLineCommandText(ChatCompletions completion, string fallback)
+        private static string ExtractSingleLineCommandText(ChatCompletion completion, string fallback)
         {
             string content = string.Empty;
 
-            if (completion?.Choices != null && completion.Choices.Count > 0)
+            if (completion?.Content != null && completion.Content.Count > 0)
             {
-                content = completion.Choices[0].Message?.Content ?? string.Empty;
+                content = completion.Content[0].Text ?? string.Empty;
             }
 
             content = content.Replace("\r", "");
